@@ -185,17 +185,18 @@ def add_log(log_type, message):
             'message': message,
             'timestamp': timestamp
         })
+        print(f"[{log_type.upper()}] {message}")
 
 def parse_log_line(line):
     line = line.strip()
     if '[INFO]' in line:
         return 'info', line.split('[INFO]', 1)[1].strip()
-    elif '[SUCCESS]' in line:
-        return 'success', line.split('[SUCCESS]', 1)[1].strip()
-    elif '[WARNING]' in line:
-        return 'warning', line.split('[WARNING]', 1)[1].strip()
-    elif '[ERROR]' in line:
-        return 'error', line.split('[ERROR]', 1)[1].strip()
+    elif '[SUCCESS]' in line or '[✓]' in line:
+        return 'success', line.split('[SUCCESS]', 1)[1].strip() if '[SUCCESS]' in line else line.split('[✓]', 1)[1].strip()
+    elif '[WARNING]' in line or '[!]' in line:
+        return 'warning', line.split('[WARNING]', 1)[1].strip() if '[WARNING]' in line else line.split('[!]', 1)[1].strip()
+    elif '[ERROR]' in line or '[✗]' in line:
+        return 'error', line.split('[ERROR]', 1)[1].strip() if '[ERROR]' in line else line.split('[✗]', 1)[1].strip()
     else:
         return 'info', line
 
@@ -208,6 +209,7 @@ def update_step_status(function_name, status):
                     installation_status['steps'][i]['status'] = status
                     if status == 'running':
                         installation_status['current_step'] = i
+                    print(f"[STEP] {step['name']} -> {status}")
 
 def run_installation(install_path, auto_update):
     try:
@@ -226,13 +228,16 @@ def run_installation(install_path, auto_update):
         
         if not os.path.exists(script_path):
             add_log('error', f'Installationsskript nicht gefunden: {script_path}')
+            add_log('warning', 'Bitte kopieren Sie install_edgard.sh ins Verzeichnis')
             return
         
         env = os.environ.copy()
         if install_path:
-            env['EDGARD_DIR'] = install_path
+            env['EDGARD_DIR'] = os.path.expanduser(install_path)
         if auto_update:
             env['AUTO_UPDATE'] = 'true'
+        
+        add_log('info', f'Starte Script: {script_path}')
         
         process = subprocess.Popen(
             ['bash', script_path],
@@ -250,12 +255,15 @@ def run_installation(install_path, auto_update):
             log_type, message = parse_log_line(line)
             add_log(log_type, message)
             
+            # Intelligentere Schritt-Erkennung
             for func_name, step_info in STEP_MAPPING.items():
                 if step_info['name'].lower() in message.lower():
-                    if 'start' in message.lower() or 'prüf' in message.lower():
+                    if any(word in message.lower() for word in ['start', 'prüf', 'install', 'erstell', 'einricht']):
                         update_step_status(func_name, 'running')
-                    elif 'erfolg' in message.lower() or 'ok' in message.lower():
+                    elif any(word in message.lower() for word in ['erfolg', 'ok', '✓', 'abgeschlossen', 'fertig']):
                         update_step_status(func_name, 'success')
+                    elif any(word in message.lower() for word in ['fehler', '✗', 'fehlgeschlagen']):
+                        update_step_status(func_name, 'error')
         
         process.wait()
         
@@ -266,7 +274,9 @@ def run_installation(install_path, auto_update):
             add_log('error', f'Installation fehlgeschlagen (Exit Code: {process.returncode})')
     
     except Exception as e:
-        add_log('error', f'Fehler bei der Installation: {str(e)}')
+        add_log('error', f'Fehler: {str(e)}')
+        import traceback
+        traceback.print_exc()
     
     finally:
         with installation_lock:
@@ -290,6 +300,8 @@ def start_installation():
     install_path = data.get('installPath', '~/edgard_home')
     auto_update = data.get('autoUpdate', True)
     
+    print(f"[API] Starte Installation: path={install_path}, auto={auto_update}")
+    
     thread = threading.Thread(target=run_installation, args=(install_path, auto_update))
     thread.daemon = True
     thread.start()
@@ -303,20 +315,31 @@ def pause_installation():
     
     with installation_lock:
         installation_status['paused'] = not installation_status['paused']
-        status = 'paused' if installation_status['paused'] else 'resumed'
+        status = 'pausiert' if installation_status['paused'] else 'fortgesetzt'
     
     add_log('info', f'Installation {status}')
     return jsonify({'paused': installation_status['paused']})
+
+# WICHTIG: Steps beim Start initialisieren
+with installation_lock:
+    installation_status['steps'] = [
+        {'id': k['id'], 'name': k['name'], 'status': 'pending'}
+        for k in STEP_MAPPING.values()
+    ]
 
 if __name__ == '__main__':
     print("=" * 60)
     print(" 🚀 Edgard Home Installer - Web Interface")
     print("=" * 60)
-    print("\n Öffnen Sie im Browser: http://localhost:5000")
-    print(" Oder von anderem Gerät: http://$(hostname -I | awk '{print $1}'):5000")
+    print("\n Öffnen Sie im Browser:")
+    print("   http://localhost:5000")
+    import socket
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    print(f"   http://{local_ip}:5000")
     print("\n Drücken Sie Ctrl+C zum Beenden\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 EOFPYTHON
 
 chmod +x server.py
@@ -324,9 +347,6 @@ log_success "Backend-Server erstellt"
 
 log_step "7/8 - Erstelle Frontend (templates/index.html)..."
 sleep 1
-
-# Hier kommt die komplette HTML-Datei von vorhin
-curl -s https://cdn.tailwindcss.com > /dev/null 2>&1 || log_warning "TailwindCSS CDN nicht erreichbar, aber wird später vom Browser geladen"
 
 cat > templates/index.html << 'EOFHTML'
 <!DOCTYPE html>
@@ -337,15 +357,9 @@ cat > templates/index.html << 'EOFHTML'
     <title>Edgard Home Installation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-            animation: spin 1s linear infinite;
-        }
-        .gradient-bg {
-            background: linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #1e293b 100%);
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        .gradient-bg { background: linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #1e293b 100%); }
     </style>
 </head>
 <body class="gradient-bg min-h-screen p-6">
@@ -421,7 +435,7 @@ cat > templates/index.html << 'EOFHTML'
     </div>
 
     <script>
-        const API_URL = 'http://localhost:5000/api';
+        const API_URL = window.location.origin + '/api';
         let isRunning = false;
         let isPaused = false;
         let pollInterval = null;
@@ -462,8 +476,12 @@ cat > templates/index.html << 'EOFHTML'
                     document.getElementById('installPath').disabled = true;
                     document.getElementById('autoUpdate').disabled = true;
                     startPolling();
+                } else {
+                    const data = await response.json();
+                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
                 }
             } catch (error) {
+                console.error('Fehler:', error);
                 alert('Fehler: Konnte keine Verbindung zum Server herstellen!');
             }
         }
@@ -514,6 +532,7 @@ cat > templates/index.html << 'EOFHTML'
 
         function updateSteps(steps) {
             const container = document.getElementById('stepsContainer');
+            if (!steps || steps.length === 0) return;
             container.innerHTML = steps.map(step => `
                 <div class="flex items-center gap-3 p-3 rounded-lg transition-all ${
                     step.status === 'running' ? 'bg-blue-500/20 border border-blue-500/50' :
@@ -548,10 +567,14 @@ cat > templates/index.html << 'EOFHTML'
         }
 
         function updateProgress(current, total) {
+            if (total === 0) return;
             const percent = Math.round((current / total) * 100);
             document.getElementById('progressPercent').textContent = `${percent}%`;
             document.getElementById('progressBar').style.width = `${percent}%`;
         }
+
+        // Initial laden der Steps
+        updateStatus();
     </script>
 </body>
 </html>
@@ -563,7 +586,7 @@ log_step "8/8 - Kopiere Ihr Installationsskript..."
 sleep 1
 
 # Prüfe ob install_edgard.sh im gleichen Verzeichnis liegt
-SOURCE_SCRIPT="$(dirname "$0")/install_edgard.sh"
+SOURCE_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/install_edgard.sh"
 
 if [ -f "$SOURCE_SCRIPT" ]; then
     cp "$SOURCE_SCRIPT" "$INSTALL_DIR/install_edgard.sh"
