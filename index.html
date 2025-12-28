@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edgard Home Installation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        .gradient-bg { 
+            background: linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #1e293b 100%);
+            background-size: 200% 200%;
+            animation: gradient-shift 15s ease infinite;
+        }
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen p-6">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-blue-500 rounded-2xl mb-4 shadow-lg transform hover:scale-110 transition-transform">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                </svg>
+            </div>
+            <h1 class="text-4xl font-bold text-white mb-2">Edgard Home Installation</h1>
+            <p class="text-blue-200">Automatisierte Einrichtung mit AdGuard Home Integration</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Sidebar: Konfiguration & Steuerung -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Konfiguration -->
+                <div class="glass rounded-xl p-6 shadow-xl">
+                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                        </svg>
+                        Konfiguration
+                    </h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-blue-200 mb-2">
+                                📁 Installationspfad
+                            </label>
+                            <input 
+                                type="text" 
+                                id="installPath" 
+                                value="~/edgard_home" 
+                                class="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                placeholder="z.B. ~/edgard_home"
+                            />
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <input 
+                                type="checkbox" 
+                                id="autoUpdate" 
+                                checked 
+                                class="w-4 h-4 text-blue-500 bg-white/10 border-white/20 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <label for="autoUpdate" class="text-sm text-blue-200 cursor-pointer">
+                                🔄 Automatische Updates (täglich 03:00 Uhr)
+                            </label>
+                        </div>
+
+                        <div class="border-t border-white/20 pt-4">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <input 
+                                    type="checkbox" 
+                                    id="installAdguard" 
+                                    class="w-4 h-4 text-green-500 bg-white/10 border-white/20 rounded focus:ring-green-500 focus:ring-2"
+                                />
+                                <label for="installAdguard" class="text-sm font-medium text-green-300 cursor-pointer">
+                                    🛡️ AdGuard Home installieren
+                                </label>
+                            </div>
+                            <p class="text-xs text-blue-300 ml-6 mb-3">
+                                DNS-basierter Adblocker & Privacy-Schutz
+                            </p>
+                            <div class="ml-6 text-xs text-blue-200 space-y-1 bg-white/5 rounded-lg p-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-green-400">•</span>
+                                    <span>Web-Interface: Port 3000</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-green-400">•</span>
+                                    <span>DNS-Server: Port 53</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-green-400">•</span>
+                                    <span>Blockiert Werbung & Tracker</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-green-400">•</span>
+                                    <span>Detaillierte Statistiken</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Steuerung -->
+                <div class="glass rounded-xl p-6 shadow-xl">
+                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"></path>
+                        </svg>
+                        Steuerung
+                    </h2>
+                    <div class="space-y-3">
+                        <button 
+                            id="startBtn" 
+                            class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path>
+                            </svg>
+                            Installation starten
+                        </button>
+                        
+                        <button 
+                            id="pauseBtn" 
+                            disabled 
+                            class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 disabled:from-gray-500 disabled:to-gray-600 text-white font-semibold rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path>
+                            </svg>
+                            <span id="pauseBtnText">Pausieren</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Fortschrittsbalken -->
+                    <div id="progressContainer" class="mt-4 hidden">
+                        <div class="flex justify-between text-sm text-blue-200 mb-2">
+                            <span class="font-medium">Fortschritt</span>
+                            <span id="progressPercent" class="font-bold">0%</span>
+                        </div>
+                        <div class="w-full h-3 bg-white/20 rounded-full overflow-hidden">
+                            <div 
+                                id="progressBar" 
+                                class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 transition-all duration-500 ease-out"
+                                style="width: 0%"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content: Steps & Logs -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Installationsschritte -->
+                <div class="glass rounded-xl p-6 shadow-xl">
+                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
+                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path>
+                        </svg>
+                        Installationsschritte
+                    </h2>
+                    <div id="stepsContainer" class="space-y-3">
+                        <div class="text-center text-blue-300 py-8">
+                            Bereit zur Installation...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Installation Log -->
+                <div class="glass rounded-xl p-6 shadow-xl">
+                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                            <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
+                        </svg>
+                        Installation Log
+                    </h2>
+                    <div 
+                        class="bg-black/40 rounded-lg p-4 h-72 overflow-y-auto font-mono text-sm scrollbar-thin scrollbar-thumb-blue-500 scrollbar-track-transparent" 
+                        id="logsContainer"
+                    >
+                        <div class="text-gray-400 text-center py-8 flex flex-col items-center gap-2">
+                            <svg class="w-12 h-12 text-blue-500 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>Bereit zur Installation...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer: Informationen nach Installation -->
+        <div class="mt-6 glass rounded-xl p-6 text-center shadow-xl">
+            <p class="text-sm text-blue-200 mb-3 font-medium">Nach erfolgreicher Installation verfügbar unter:</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="http://localhost:8080" target="_blank" class="group inline-flex items-center gap-2 font-mono text-white bg-blue-500/30 hover:bg-blue-500/50 px-4 py-2 rounded-lg transition-all transform hover:scale-105">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"></path>
+                    </svg>
+                    Edgard Home: localhost:8080
+                </a>
+                <a href="http://localhost:3000" target="_blank" id="adguardInfo" class="hidden group inline-flex items-center gap-2 font-mono text-white bg-green-500/30 hover:bg-green-500/50 px-4 py-2 rounded-lg transition-all transform hover:scale-105">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    AdGuard Home: localhost:3000
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin + '/api';
+        let isRunning = false;
+        let isPaused = false;
+        let pollInterval = null;
+
+        // SVG Icons für Steps
+        const icons = {
+            pending: '<div class="w-5 h-5 rounded-full border-2 border-gray-400 bg-gray-700/30"></div>',
+            running: `<svg class="w-5 h-5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>`,
+            success: `<svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>`,
+            error: `<svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+            </svg>`
+        };
+
+        // Icons für Log-Einträge
+        const logIcons = {
+            info: `<svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+            </svg>`,
+            success: `<svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>`,
+            warning: `<svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+            </svg>`,
+            error: `<svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+            </svg>`
+        };
+
+        // Event Listeners
+        document.getElementById('installAdguard').addEventListener('change', function() {
+            const adguardInfo = document.getElementById('adguardInfo');
+            adguardInfo.classList.toggle('hidden', !this.checked);
+        });
+
+        document.getElementById('startBtn').addEventListener('click', startInstallation);
+        document.getElementById('pauseBtn').addEventListener('click', pauseInstallation);
+
+        // Installation starten
+        async function startInstallation() {
+            const installPath = document.getElementById('installPath').value;
+            const autoUpdate = document.getElementById('autoUpdate').checked;
+            const installAdguard = document.getElementById('installAdguard').checked;
+
+            try {
+                const response = await fetch(`${API_URL}/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ installPath, autoUpdate, installAdguard })
+                });
+
+                if (response.ok) {
+                    isRunning = true;
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('pauseBtn').disabled = false;
+                    document.getElementById('progressContainer').classList.remove('hidden');
+                    document.getElementById('installPath').disabled = true;
+                    document.getElementById('autoUpdate').disabled = true;
+                    document.getElementById('installAdguard').disabled = true;
+                    startPolling();
+                    
+                    if (installAdguard) {
+                        document.getElementById('adguardInfo').classList.remove('hidden');
+                    }
+                } else {
+                    const data = await response.json();
+                    alert('❌ Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            } catch (error) {
+                console.error('Fehler:', error);
+                alert('❌ Fehler: Konnte keine Verbindung zum Server herstellen!');
+            }
+        }
+
+        // Installation pausieren/fortsetzen
+        async function pauseInstallation() {
+            try {
+                const response = await fetch(`${API_URL}/pause`, { method: 'POST' });
+                const data = await response.json();
+                isPaused = data.paused;
+                document.getElementById('pauseBtnText').textContent = isPaused ? 'Fortsetzen' : 'Pausieren';
+            } catch (error) {
+                console.error('Fehler beim Pausieren:', error);
+            }
+        }
+
+        // Polling starten
+        function startPolling() {
+            pollInterval = setInterval(updateStatus, 1000);
+        }
+
+        // Polling stoppen
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+
+        // Status aktualisieren
+        async function updateStatus() {
+            try {
+                const response = await fetch(`${API_URL}/status`);
+                const data = await response.json();
+
+                updateSteps(data.steps);
+                updateLogs(data.logs);
+                updateProgress(data.current_step, data.steps.length);
+
+                if (!data.running && isRunning) {
+                    isRunning = false;
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('pauseBtn').disabled = true;
+                    document.getElementById('installPath').disabled = false;
+                    document.getElementById('autoUpdate').disabled = false;
+                    document.getElementById('installAdguard').disabled = false;
+                    stopPolling();
+                }
+            } catch (error) {
+                console.error('Fehler beim Abrufen des Status:', error);
+            }
+        }
+
+        // Steps aktualisieren
+        function updateSteps(steps) {
+            const container = document.getElementById('stepsContainer');
+            if (!steps || steps.length === 0) return;
+            
+            container.innerHTML = steps.map(step => `
+                <div class="flex items-center gap-3 p-3 rounded-lg transition-all ${
+                    step.status === 'running' ? 'bg-blue-500/20 border-2 border-blue-500/50 shadow-lg' :
+                    step.status === 'success' ? 'bg-green-500/10 border border-green-500/30' :
+                    step.status === 'error' ? 'bg-red-500/10 border border-red-500/30' :
+                    'bg-white/5 border border-white/10'
+                }">
+                    ${icons[step.status] || icons.pending}
+                    <span class="text-white flex-1 ${step.status === 'running' ? 'font-semibold' : ''}">${step.name}</span>
+                    ${step.status === 'running' ? '<span class="text-xs text-blue-300 animate-pulse font-medium">Läuft...</span>' : ''}
+                    ${step.status === 'success' ? '<span class="text-xs text-green-300">✓ Fertig</span>' : ''}
+                    ${step.status === 'error'<function_calls>
+<invoke name="artifacts">
+<parameter name="command">update</parameter>
+<parameter name="id">index_html_complete</parameter>
+<parameter name="old_str">                    ${step.status === 'error'</parameter>
+<parameter name="new_str">                    ${step.status === 'error' ? '<span class="text-xs text-red-300">✗ Fehler</span>' : ''}
+</div>
+`).join('');
+}
+    // Logs aktualisieren
+    function updateLogs(logs) {
+        const container = document.getElementById('logsContainer');
+        if (!logs || logs.length === 0) return;
+
+        container.innerHTML = logs.slice(-50).map(log => `
+            <div class="flex items-start gap-2 mb-2 animate-fade-in">
+                ${logIcons[log.type] || logIcons.info}
+                <span class="text-gray-400 text-xs whitespace-nowrap">${log.timestamp}</span>
+                <span class="flex-1 ${
+                    log.type === 'success' ? 'text-green-300' :
+                    log.type === 'error' ? 'text-red-300' :
+                    log.type === 'warning' ? 'text-yellow-300' :
+                    'text-blue-200'
+                }">${escapeHtml(log.message)}</span>
+            </div>
+        `).join('');
+
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // Fortschritt aktualisieren
+    function updateProgress(current, total) {
+        if (total === 0) return;
+        const percent = Math.round((current / total) * 100);
+        document.getElementById('progressPercent').textContent = `${percent}%`;
+        document.getElementById('progressBar').style.width = `${percent}%`;
+    }
+
+    // HTML escapen
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Initial Status laden
+    updateStatus();
+</script>
+</body>
+</html></parameter>
