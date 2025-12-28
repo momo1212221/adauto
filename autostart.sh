@@ -18,6 +18,7 @@ show_banner() {
     echo "║        🚀 EDGARD HOME INSTALLER - AUTO SETUP 🚀          ║"
     echo "║                                                           ║"
     echo "║         Alles wird automatisch installiert!               ║"
+    echo "║         + AdGuard Home Integration                        ║"
     echo "║                                                           ║"
     echo "╚═══════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -92,6 +93,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y \
     curl \
     git \
     net-tools \
+    wget \
+    tar \
     &> /dev/null
 
 log_success "System-Abhängigkeiten installiert"
@@ -130,9 +133,10 @@ log_info "Erstelle requirements.txt..."
 cat > requirements.txt << 'EOL'
 flask==3.0.0
 flask-cors==4.0.0
+requests==2.31.0
 EOL
 
-log_info "Installiere Flask & Flask-CORS..."
+log_info "Installiere Flask & Flask-CORS & Requests..."
 pip install -q -r requirements.txt
 log_success "Python-Pakete installiert"
 
@@ -149,6 +153,8 @@ import os
 import subprocess
 import threading
 import time
+import platform
+import requests
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 
@@ -173,6 +179,7 @@ STEP_MAPPING = {
     'update_system': {'id': 'update_system', 'name': 'System aktualisieren'},
     'install_docker': {'id': 'install_docker', 'name': 'Docker installieren'},
     'install_docker_compose': {'id': 'install_compose', 'name': 'Docker Compose installieren'},
+    'install_adguard': {'id': 'install_adguard', 'name': 'AdGuard Home installieren'},
     'setup_edgard_home': {'id': 'setup_edgard', 'name': 'Edgard Home einrichten'},
     'setup_auto_update': {'id': 'setup_cron', 'name': 'Auto-Update konfigurieren'}
 }
@@ -211,7 +218,108 @@ def update_step_status(function_name, status):
                         installation_status['current_step'] = i
                     print(f"[STEP] {step['name']} -> {status}")
 
-def run_installation(install_path, auto_update):
+def get_adguard_download_url():
+    """Ermittelt die richtige AdGuard Home Download-URL für das System"""
+    machine = platform.machine().lower()
+    system = platform.system().lower()
+    
+    # Architektur ermitteln
+    if machine in ['x86_64', 'amd64']:
+        arch = 'amd64'
+    elif machine in ['aarch64', 'arm64']:
+        arch = 'arm64'
+    elif machine.startswith('arm'):
+        arch = 'armv7'
+    else:
+        arch = 'amd64'  # Fallback
+    
+    # Betriebssystem
+    if system == 'linux':
+        os_type = 'linux'
+    elif system == 'darwin':
+        os_type = 'darwin'
+    else:
+        os_type = 'linux'  # Fallback
+    
+    # Neueste Version von GitHub holen
+    try:
+        response = requests.get('https://api.github.com/repos/AdguardTeam/AdGuardHome/releases/latest')
+        latest_version = response.json()['tag_name'].lstrip('v')
+        url = f"https://github.com/AdguardTeam/AdGuardHome/releases/download/v{latest_version}/AdGuardHome_{os_type}_{arch}.tar.gz"
+        return url, latest_version
+    except:
+        # Fallback auf bekannte Version
+        version = "0.107.43"
+        url = f"https://github.com/AdguardTeam/AdGuardHome/releases/download/v{version}/AdGuardHome_{os_type}_{arch}.tar.gz"
+        return url, version
+
+def install_adguard(install_path):
+    """Installiert AdGuard Home"""
+    try:
+        add_log('info', 'Starte AdGuard Home Installation...')
+        update_step_status('install_adguard', 'running')
+        
+        adguard_dir = os.path.join(os.path.expanduser(install_path), 'adguard')
+        os.makedirs(adguard_dir, exist_ok=True)
+        
+        # Download-URL ermitteln
+        download_url, version = get_adguard_download_url()
+        add_log('info', f'Lade AdGuard Home v{version} herunter...')
+        add_log('info', f'URL: {download_url}')
+        
+        # Download
+        tar_file = os.path.join(adguard_dir, 'AdGuardHome.tar.gz')
+        subprocess.run(['wget', '-O', tar_file, download_url], check=True, capture_output=True)
+        add_log('success', 'Download abgeschlossen')
+        
+        # Entpacken
+        add_log('info', 'Entpacke AdGuard Home...')
+        subprocess.run(['tar', '-xzf', tar_file, '-C', adguard_dir], check=True)
+        os.remove(tar_file)
+        add_log('success', 'AdGuard Home entpackt')
+        
+        # Executable-Rechte setzen
+        adguard_binary = os.path.join(adguard_dir, 'AdGuardHome', 'AdGuardHome')
+        os.chmod(adguard_binary, 0o755)
+        
+        # Systemd Service erstellen
+        service_content = f"""[Unit]
+Description=AdGuard Home
+After=network.target
+
+[Service]
+Type=simple
+User={os.getenv('USER')}
+WorkingDirectory={os.path.join(adguard_dir, 'AdGuardHome')}
+ExecStart={adguard_binary} -w {os.path.join(adguard_dir, 'AdGuardHome')}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+"""
+        
+        service_file = os.path.join(adguard_dir, 'adguardhome.service')
+        with open(service_file, 'w') as f:
+            f.write(service_content)
+        
+        add_log('info', 'Installiere Systemd Service...')
+        subprocess.run(['sudo', 'cp', service_file, '/etc/systemd/system/adguardhome.service'], check=True)
+        subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
+        subprocess.run(['sudo', 'systemctl', 'enable', 'adguardhome'], check=True)
+        subprocess.run(['sudo', 'systemctl', 'start', 'adguardhome'], check=True)
+        
+        add_log('success', 'AdGuard Home erfolgreich installiert!')
+        add_log('info', 'Web-Interface: http://localhost:3000')
+        add_log('info', 'DNS-Server: Port 53')
+        update_step_status('install_adguard', 'success')
+        
+    except Exception as e:
+        add_log('error', f'AdGuard Installation fehlgeschlagen: {str(e)}')
+        update_step_status('install_adguard', 'error')
+        raise
+
+def run_installation(install_path, auto_update, install_adguard_option):
     try:
         with installation_lock:
             installation_status['running'] = True
@@ -224,6 +332,14 @@ def run_installation(install_path, auto_update):
         
         add_log('info', 'Starte Installation...')
         
+        # AdGuard installieren (wenn gewünscht)
+        if install_adguard_option:
+            install_adguard(install_path)
+        else:
+            add_log('info', 'AdGuard Home Installation übersprungen')
+            update_step_status('install_adguard', 'success')
+        
+        # Hauptinstallationsskript ausführen
         script_path = os.path.join(os.path.dirname(__file__), 'install_edgard.sh')
         
         if not os.path.exists(script_path):
@@ -255,8 +371,10 @@ def run_installation(install_path, auto_update):
             log_type, message = parse_log_line(line)
             add_log(log_type, message)
             
-            # Intelligentere Schritt-Erkennung
+            # Schritt-Erkennung
             for func_name, step_info in STEP_MAPPING.items():
+                if func_name == 'install_adguard':
+                    continue  # AdGuard wurde bereits behandelt
                 if step_info['name'].lower() in message.lower():
                     if any(word in message.lower() for word in ['start', 'prüf', 'install', 'erstell', 'einricht']):
                         update_step_status(func_name, 'running')
@@ -269,7 +387,9 @@ def run_installation(install_path, auto_update):
         
         if process.returncode == 0:
             add_log('success', 'Installation erfolgreich abgeschlossen!')
-            add_log('info', 'Web-Interface verfügbar unter: http://localhost:8080')
+            add_log('info', 'Edgard Home: http://localhost:8080')
+            if install_adguard_option:
+                add_log('info', 'AdGuard Home: http://localhost:3000')
         else:
             add_log('error', f'Installation fehlgeschlagen (Exit Code: {process.returncode})')
     
@@ -299,10 +419,11 @@ def start_installation():
     data = request.json or {}
     install_path = data.get('installPath', '~/edgard_home')
     auto_update = data.get('autoUpdate', True)
+    install_adguard_option = data.get('installAdguard', False)
     
-    print(f"[API] Starte Installation: path={install_path}, auto={auto_update}")
+    print(f"[API] Starte Installation: path={install_path}, auto={auto_update}, adguard={install_adguard_option}")
     
-    thread = threading.Thread(target=run_installation, args=(install_path, auto_update))
+    thread = threading.Thread(target=run_installation, args=(install_path, auto_update, install_adguard_option))
     thread.daemon = True
     thread.start()
     
@@ -320,7 +441,7 @@ def pause_installation():
     add_log('info', f'Installation {status}')
     return jsonify({'paused': installation_status['paused']})
 
-# WICHTIG: Steps beim Start initialisieren
+# Steps beim Start initialisieren
 with installation_lock:
     installation_status['steps'] = [
         {'id': k['id'], 'name': k['name'], 'status': 'pending'}
@@ -371,7 +492,7 @@ cat > templates/index.html << 'EOFHTML'
                 </svg>
             </div>
             <h1 class="text-4xl font-bold text-white mb-2">Edgard Home Installation</h1>
-            <p class="text-blue-200">Automatisierte Einrichtung Ihrer Edgard Home Umgebung</p>
+            <p class="text-blue-200">Automatisierte Einrichtung mit AdGuard Home Integration</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -386,6 +507,18 @@ cat > templates/index.html << 'EOFHTML'
                         <div class="flex items-center">
                             <input type="checkbox" id="autoUpdate" checked class="w-4 h-4 text-blue-500 rounded focus:ring-blue-500"/>
                             <label for="autoUpdate" class="ml-2 text-sm text-blue-200">Automatische Updates (täglich 03:00)</label>
+                        </div>
+                        <div class="border-t border-white/20 pt-4 mt-4">
+                            <div class="flex items-center mb-2">
+                                <input type="checkbox" id="installAdguard" class="w-4 h-4 text-green-500 rounded focus:ring-green-500"/>
+                                <label for="installAdguard" class="ml-2 text-sm font-medium text-green-300">AdGuard Home installieren</label>
+                            </div>
+                            <p class="text-xs text-blue-300 ml-6">DNS-Adblocker & Privacy-Schutz</p>
+                            <div class="mt-2 ml-6 text-xs text-blue-200 space-y-1">
+                                <div>• Web-Interface: Port 3000</div>
+                                <div>• DNS-Server: Port 53</div>
+                                <div>• Blockiert Werbung & Tracker</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -429,8 +562,12 @@ cat > templates/index.html << 'EOFHTML'
             </div>
         </div>
 
-        <div class="mt-6 text-center">
-            <p class="text-sm text-blue-200">Nach erfolgreicher Installation ist Edgard Home verfügbar unter: <span class="font-mono text-white">http://localhost:8080</span></p>
+        <div class="mt-6 text-center space-y-2">
+            <p class="text-sm text-blue-200">Nach erfolgreicher Installation:</p>
+            <div class="flex flex-wrap justify-center gap-4 text-sm">
+                <span class="font-mono text-white bg-blue-500/30 px-3 py-1 rounded">Edgard Home: http://localhost:8080</span>
+                <span id="adguardInfo" class="hidden font-mono text-white bg-green-500/30 px-3 py-1 rounded">AdGuard Home: http://localhost:3000</span>
+            </div>
         </div>
     </div>
 
@@ -454,18 +591,29 @@ cat > templates/index.html << 'EOFHTML'
             error: '<svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>'
         };
 
+        // AdGuard Checkbox Event
+        document.getElementById('installAdguard').addEventListener('change', function() {
+            const adguardInfo = document.getElementById('adguardInfo');
+            if (this.checked) {
+                adguardInfo.classList.remove('hidden');
+            } else {
+                adguardInfo.classList.add('hidden');
+            }
+        });
+
         document.getElementById('startBtn').addEventListener('click', startInstallation);
         document.getElementById('pauseBtn').addEventListener('click', pauseInstallation);
 
         async function startInstallation() {
             const installPath = document.getElementById('installPath').value;
             const autoUpdate = document.getElementById('autoUpdate').checked;
+            const installAdguard = document.getElementById('installAdguard').checked;
 
             try {
                 const response = await fetch(`${API_URL}/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ installPath, autoUpdate })
+                    body: JSON.stringify({ installPath, autoUpdate, installAdguard })
                 });
 
                 if (response.ok) {
@@ -475,7 +623,12 @@ cat > templates/index.html << 'EOFHTML'
                     document.getElementById('progressContainer').classList.remove('hidden');
                     document.getElementById('installPath').disabled = true;
                     document.getElementById('autoUpdate').disabled = true;
+                    document.getElementById('installAdguard').disabled = true;
                     startPolling();
+                    
+                    if (installAdguard) {
+                        document.getElementById('adguardInfo').classList.remove('hidden');
+                    }
                 } else {
                     const data = await response.json();
                     alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
@@ -523,6 +676,7 @@ cat > templates/index.html << 'EOFHTML'
                     document.getElementById('pauseBtn').disabled = true;
                     document.getElementById('installPath').disabled = false;
                     document.getElementById('autoUpdate').disabled = false;
+                    document.getElementById('installAdguard').disabled = false;
                     stopPolling();
                 }
             } catch (error) {
@@ -537,6 +691,7 @@ cat > templates/index.html << 'EOFHTML'
                 <div class="flex items-center gap-3 p-3 rounded-lg transition-all ${
                     step.status === 'running' ? 'bg-blue-500/20 border border-blue-500/50' :
                     step.status === 'success' ? 'bg-green-500/10 border border-green-500/30' :
+                    step.status === 'error' ? 'bg-red-500/10 border border-red-500/30' :
                     'bg-white/5 border border-white/10'
                 }">
                     ${icons[step.status] || icons.pending}
@@ -611,9 +766,10 @@ echo
 log_info "Installation Details:"
 echo "  📁 Verzeichnis: $INSTALL_DIR"
 echo "  🐍 Python venv: Aktiviert"
-echo "  📦 Pakete: Flask, Flask-CORS"
+echo "  📦 Pakete: Flask, Flask-CORS, Requests"
 echo "  🌐 Server: server.py"
 echo "  🎨 Frontend: templates/index.html"
+echo "  🛡️  AdGuard: Optional installierbar"
 echo
 
 log_step "Starte den Web-Server..."
@@ -664,6 +820,15 @@ echo "    sudo cp $INSTALL_DIR/edgard-installer.service /etc/systemd/system/"
 echo "    sudo systemctl daemon-reload"
 echo "    sudo systemctl enable edgard-installer"
 echo "    sudo systemctl start edgard-installer"
+echo
+
+log_info "AdGuard Home Features:"
+echo "  🛡️  DNS-basierte Werbeblocker"
+echo "  🔒 Privacy-Schutz & Tracker-Blocking"
+echo "  📊 Detaillierte Statistiken"
+echo "  ⚙️  Anpassbare Blocklists"
+echo "  🌐 Web-Interface: Port 3000"
+echo "  📡 DNS-Server: Port 53"
 echo
 
 # Server automatisch starten
