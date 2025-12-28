@@ -57,18 +57,12 @@ show_banner
 log_step "1/8 - Prüfe Systemvoraussetzungen..."
 sleep 1
 
-# Root-Check
+# Root-Check (informativ)
 if [ "$EUID" -eq 0 ]; then
     log_warning "Das Script wird als root ausgeführt!"
-    read -p "Möchten Sie trotzdem fortfahren? [j/N]: " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Jj]$ ]]; then
-        log_error "Installation abgebrochen, da Root nicht gewünscht."
-        exit 1
-    else
-        log_info "Installation wird als Root fortgesetzt."
-    fi
+    log_info "Fortsetzung der Installation als Root."
 fi
+
 log_success "Benutzerrechte OK"
 
 
