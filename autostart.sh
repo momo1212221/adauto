@@ -59,10 +59,18 @@ sleep 1
 
 # Root-Check
 if [ "$EUID" -eq 0 ]; then
-    log_error "Bitte führen Sie dieses Script NICHT als root aus!"
-    exit 1
+    log_warning "Das Script wird als root ausgeführt!"
+    read -p "Möchten Sie trotzdem fortfahren? [j/N]: " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Jj]$ ]]; then
+        log_error "Installation abgebrochen, da Root nicht gewünscht."
+        exit 1
+    else
+        log_info "Installation wird als Root fortgesetzt."
+    fi
 fi
 log_success "Benutzerrechte OK"
+
 
 # Internet-Check
 if ! ping -c 1 8.8.8.8 &> /dev/null; then
