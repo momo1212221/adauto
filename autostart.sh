@@ -772,11 +772,13 @@ if [ -f "$SOURCE_SCRIPT" ]; then
 else
     log_info "Erstelle Standard-Installationsskript..."
     cat > "$DEST_SCRIPT" << 'EOFINSTALL'
-    # hier kommt der restliche install_edgard.sh Inhalt
+#!/bin/bash
+# Hier kommt dein install_edgard.sh Inhalt rein
 EOFINSTALL
     chmod +x "$DEST_SCRIPT"
     log_success "Standard-Installationsskript erstellt"
 fi
+
 
 #!/bin/bash
 
