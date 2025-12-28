@@ -339,12 +339,27 @@ def run_installation(install_path, auto_update, install_adguard_option):
             add_log('info', 'AdGuard Home Installation übersprungen')
             update_step_status('install_adguard', 'success')
         
-        # Hauptinstallationsskript ausführen
+        # Hauptinstallationsskript ausführen (optional)
         script_path = os.path.join(os.path.dirname(__file__), 'install_edgard.sh')
         
         if not os.path.exists(script_path):
-            add_log('error', f'Installationsskript nicht gefunden: {script_path}')
-            add_log('warning', 'Bitte kopieren Sie install_edgard.sh ins Verzeichnis')
+            add_log('warning', f'Installationsskript nicht gefunden: {script_path}')
+            add_log('info', 'Nur AdGuard Home wurde installiert')
+            
+            # Markiere restliche Steps als übersprungen
+            for func_name in ['check_root', 'check_internet', 'check_os', 'check_disk_space', 
+                            'update_system', 'install_docker', 'install_docker_compose', 
+                            'setup_edgard_home', 'setup_auto_update']:
+                update_step_status(func_name, 'success')
+            
+            if install_adguard_option:
+                add_log('success', 'AdGuard Home Installation abgeschlossen!')
+                add_log('info', 'Zugriff auf: http://localhost:3000')
+                add_log('info', 'Für vollständige Edgard Home Installation:')
+                add_log('info', f'  1. Kopieren Sie install_edgard.sh nach {os.path.dirname(__file__)}/')
+                add_log('info', '  2. Starten Sie die Installation erneut')
+            else:
+                add_log('error', 'Keine Installation durchgeführt - kein Script gefunden')
             return
         
         env = os.environ.copy()
