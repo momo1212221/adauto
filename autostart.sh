@@ -759,15 +759,25 @@ sleep 1
 
 # Prüfe ob install_edgard.sh im gleichen Verzeichnis liegt
 SOURCE_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/install_edgard.sh"
+DEST_SCRIPT="$INSTALL_DIR/install_edgard.sh"
 
 if [ -f "$SOURCE_SCRIPT" ]; then
-    cp "$SOURCE_SCRIPT" "$INSTALL_DIR/install_edgard.sh"
-    chmod +x "$INSTALL_DIR/install_edgard.sh"
-    log_success "Installationsskript kopiert"
+    if [ "$SOURCE_SCRIPT" != "$DEST_SCRIPT" ]; then
+        cp "$SOURCE_SCRIPT" "$DEST_SCRIPT"
+        log_success "Installationsskript kopiert"
+    else
+        log_info "Quelle und Ziel sind identisch, Kopieren übersprungen"
+    fi
+    chmod +x "$DEST_SCRIPT"
 else
     log_info "Erstelle Standard-Installationsskript..."
-    
-    cat > "$INSTALL_DIR/install_edgard.sh" << 'EOFINSTALL'
+    cat > "$DEST_SCRIPT" << 'EOFINSTALL'
+    # hier kommt der restliche install_edgard.sh Inhalt
+EOFINSTALL
+    chmod +x "$DEST_SCRIPT"
+    log_success "Standard-Installationsskript erstellt"
+fi
+
 #!/bin/bash
 
 # Farben
