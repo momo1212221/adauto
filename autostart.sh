@@ -15,7 +15,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔═══════════════════════════════════════════════════════════╗"
     echo "║                                                           ║"
-    echo "║        🚀 EDGARD HOME INSTALLER - AUTO SETUP 🚀          ║"
+    echo "║        🚀 EDGARD HOME INSTALLER - AUTO SETUP 🚀           ║"
     echo "║                                                           ║"
     echo "║         Alles wird automatisch installiert!               ║"
     echo "║         + AdGuard Home Integration                        ║"
@@ -777,7 +777,8 @@ else
 EOFINSTALL
     chmod +x "$DEST_SCRIPT"
     log_success "Standard-Installationsskript erstellt"
-fi
+fi  # <-- fehlendes fi für die äußere if-Bedingung
+
 
 
 #!/bin/bash
