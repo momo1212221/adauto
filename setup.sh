@@ -466,7 +466,9 @@ echo
 
 # Automatisch starten?
 read -p "Server jetzt starten? [j/N]: " -n 1 -r
+
 echo
+
 if [[ $REPLY =~ ^[Jj]$ ]]; then
     log_info "Starte Server..."
     cd "$INSTALL_DIR"
