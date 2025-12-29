@@ -16,14 +16,21 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# GitHub Repository URLs
+GITHUB_RAW="https://raw.githubusercontent.com/momo1212221/adauto/refs/heads/main"
+INDEX_HTML_URL="${GITHUB_RAW}/index.html"
+INSTALL_SCRIPT_URL="${GITHUB_RAW}/install_edgard.sh"
+REQUIREMENTS_URL="${GITHUB_RAW}/requirements.txt"
+SERVER_PY_URL="${GITHUB_RAW}/server.py"
+
 show_banner() {
     clear
     echo -e "${CYAN}"
     echo "╔═══════════════════════════════════════════════════════════╗"
     echo "║                                                           ║"
-    echo "║        🚀 EDGARD HOME INSTALLER - SETUP 🚀                ║"
+    echo "║        🚀 EDGARD HOME INSTALLER - GITHUB SETUP 🚀         ║"
     echo "║                                                           ║"
-    echo "║         Repository → Installation                         ║"
+    echo "║         Direct Download from Repository                   ║"
     echo "║                                                           ║"
     echo "╚═══════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -40,43 +47,15 @@ set -e
 trap 'log_error "Setup fehlgeschlagen bei Zeile $LINENO"; exit 1' ERR
 
 # Verzeichnisse
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$HOME/edgard-installer"
 
 show_banner
 
-log_info "Repository: $REPO_DIR"
-log_info "Ziel: $INSTALL_DIR"
+log_info "GitHub Repository: momo1212221/adauto"
+log_info "Zielverzeichnis: $INSTALL_DIR"
 echo
 
-log_step "1/9 - Prüfe Repository-Struktur..."
-
-# Prüfe ob alle erforderlichen Dateien vorhanden sind
-REQUIRED_FILES=(
-    "src/server.py"
-    "src/templates/index.html"
-    "src/install_edgard.sh"
-    "src/requirements.txt"
-)
-
-MISSING_FILES=()
-for file in "${REQUIRED_FILES[@]}"; do
-    if [ ! -f "$REPO_DIR/$file" ]; then
-        MISSING_FILES+=("$file")
-    fi
-done
-
-if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-    log_warning "Folgende Dateien fehlen im Repository:"
-    for file in "${MISSING_FILES[@]}"; do
-        echo "  ✗ $file"
-    done
-    log_warning "Setup wird trotzdem fortgesetzt mit Platzhaltern"
-else
-    log_success "Alle Repository-Dateien gefunden"
-fi
-
-log_step "2/9 - Prüfe Systemvoraussetzungen..."
+log_step "1/9 - Prüfe Systemvoraussetzungen..."
 
 # Root-Check
 if [ "$EUID" -eq 0 ]; then
@@ -100,7 +79,7 @@ if [ -f /etc/os-release ]; then
     log_success "OS: $NAME $VERSION"
 fi
 
-log_step "3/9 - Installiere System-Abhängigkeiten..."
+log_step "2/9 - Installiere System-Abhängigkeiten..."
 
 log_info "Aktualisiere Paketliste..."
 $USE_SUDO apt update -qq
@@ -112,7 +91,7 @@ $USE_SUDO DEBIAN_FRONTEND=noninteractive apt install -y \
 
 log_success "Systemabhängigkeiten installiert"
 
-log_step "4/9 - Erstelle Zielverzeichnis..."
+log_step "3/9 - Erstelle Zielverzeichnis..."
 
 # Backup falls vorhanden
 if [ -d "$INSTALL_DIR" ]; then
@@ -133,15 +112,27 @@ fi
 mkdir -p "$INSTALL_DIR"/{templates,static/{css,js},scripts,config,logs}
 log_success "Verzeichnisstruktur erstellt"
 
-log_step "5/9 - Kopiere Repository-Dateien..."
+log_step "4/9 - Lade Dateien von GitHub..."
 
-# server.py
-if [ -f "$REPO_DIR/src/server.py" ]; then
-    cp "$REPO_DIR/src/server.py" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/server.py"
-    log_success "server.py → $INSTALL_DIR/"
-else
-    log_warning "server.py fehlt - Platzhalter wird erstellt"
+# Funktion zum Download
+download_file() {
+    local url=$1
+    local target=$2
+    local description=$3
+    
+    log_info "Lade $description..."
+    if wget -q "$url" -O "$target"; then
+        log_success "$description → $target"
+        return 0
+    else
+        log_error "Download fehlgeschlagen: $description"
+        return 1
+    fi
+}
+
+# server.py herunterladen
+download_file "$SERVER_PY_URL" "$INSTALL_DIR/server.py" "server.py" || {
+    log_warning "server.py Download fehlgeschlagen - Erstelle Platzhalter"
     cat > "$INSTALL_DIR/server.py" << 'EOF'
 #!/usr/bin/env python3
 from flask import Flask
@@ -149,77 +140,55 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return "Server läuft - Bitte vollständige server.py einfügen!"
+    return "Server läuft - Bitte vollständige server.py von GitHub laden!"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
 EOF
-    chmod +x "$INSTALL_DIR/server.py"
-fi
+}
+chmod +x "$INSTALL_DIR/server.py"
 
-# index.html
-if [ -f "$REPO_DIR/src/templates/index.html" ]; then
-    cp "$REPO_DIR/src/templates/index.html" "$INSTALL_DIR/templates/"
-    log_success "index.html → $INSTALL_DIR/templates/"
-else
-    log_warning "index.html fehlt - Platzhalter wird erstellt"
-    echo "<h1>Frontend Platzhalter - Bitte index.html einfügen!</h1>" > "$INSTALL_DIR/templates/index.html"
-fi
+# index.html herunterladen
+download_file "$INDEX_HTML_URL" "$INSTALL_DIR/templates/index.html" "index.html" || {
+    log_warning "index.html Download fehlgeschlagen - Erstelle Platzhalter"
+    echo "<h1>Frontend Platzhalter - Bitte index.html von GitHub laden!</h1>" > "$INSTALL_DIR/templates/index.html"
+}
 
-# install_edgard.sh
-if [ -f "$REPO_DIR/src/install_edgard.sh" ]; then
-    cp "$REPO_DIR/src/install_edgard.sh" "$INSTALL_DIR/scripts/"
-    chmod +x "$INSTALL_DIR/scripts/install_edgard.sh"
-    log_success "install_edgard.sh → $INSTALL_DIR/scripts/"
-else
-    log_warning "install_edgard.sh fehlt - Platzhalter wird erstellt"
+# install_edgard.sh herunterladen
+download_file "$INSTALL_SCRIPT_URL" "$INSTALL_DIR/scripts/install_edgard.sh" "install_edgard.sh" || {
+    log_warning "install_edgard.sh Download fehlgeschlagen - Erstelle Platzhalter"
     cat > "$INSTALL_DIR/scripts/install_edgard.sh" << 'EOF'
 #!/bin/bash
 echo "Installation läuft..."
-echo "Bitte vollständiges install_edgard.sh einfügen!"
+echo "Bitte vollständiges install_edgard.sh von GitHub laden!"
 EOF
-    chmod +x "$INSTALL_DIR/scripts/install_edgard.sh"
-fi
+}
+chmod +x "$INSTALL_DIR/scripts/install_edgard.sh"
 
-# requirements.txt
-if [ -f "$REPO_DIR/src/requirements.txt" ]; then
-    cp "$REPO_DIR/src/requirements.txt" "$INSTALL_DIR/"
-    log_success "requirements.txt → $INSTALL_DIR/"
-else
-    log_warning "requirements.txt fehlt - Standard wird erstellt"
+# requirements.txt herunterladen
+download_file "$REQUIREMENTS_URL" "$INSTALL_DIR/requirements.txt" "requirements.txt" || {
+    log_warning "requirements.txt Download fehlgeschlagen - Erstelle Standard"
     cat > "$INSTALL_DIR/requirements.txt" << 'EOF'
 flask==3.0.0
 flask-cors==4.0.0
 requests==2.31.0
 EOF
-fi
+}
 
-# Optional: CSS/JS Dateien
-if [ -d "$REPO_DIR/src/static" ]; then
-    cp -r "$REPO_DIR/src/static/"* "$INSTALL_DIR/static/" 2>/dev/null || true
-    log_success "Static files kopiert"
-fi
-
-# Optional: Config Dateien
-if [ -d "$REPO_DIR/src/config" ]; then
-    cp -r "$REPO_DIR/src/config/"* "$INSTALL_DIR/config/" 2>/dev/null || true
-    log_success "Config files kopiert"
-fi
-
-log_step "6/9 - Erstelle Python Virtual Environment..."
+log_step "5/9 - Erstelle Python Virtual Environment..."
 
 cd "$INSTALL_DIR"
 python3 -m venv venv
 source venv/bin/activate
 log_success "Virtual Environment erstellt"
 
-log_step "7/9 - Installiere Python-Pakete..."
+log_step "6/9 - Installiere Python-Pakete..."
 
 pip install -q --upgrade pip
 pip install -q -r requirements.txt
 log_success "Python-Pakete installiert"
 
-log_step "8/9 - Erstelle Management-Scripts..."
+log_step "7/9 - Erstelle Management-Scripts..."
 
 # start.sh
 cat > "$INSTALL_DIR/start.sh" << 'EOF'
@@ -257,15 +226,45 @@ EOF
 chmod +x restart.sh
 log_success "restart.sh erstellt"
 
-# update.sh
-cat > "$INSTALL_DIR/update.sh" << 'EOF'
+# update.sh - lädt Dateien neu von GitHub
+cat > "$INSTALL_DIR/update.sh" << EOFUPDATE
 #!/bin/bash
-cd "$(dirname "$0")"
-echo "📦 Aktualisiere Dependencies..."
+cd "\$(dirname "\$0")"
+
+echo "📦 Aktualisiere von GitHub..."
+
+# GitHub URLs
+GITHUB_RAW="https://raw.githubusercontent.com/momo1212221/adauto/refs/heads/main"
+
+# Backup erstellen
+BACKUP_DIR="backup_\$(date +%Y%m%d_%H%M%S)"
+mkdir -p "\$BACKUP_DIR"
+
+# Dateien sichern
+cp server.py "\$BACKUP_DIR/" 2>/dev/null
+cp templates/index.html "\$BACKUP_DIR/" 2>/dev/null
+cp scripts/install_edgard.sh "\$BACKUP_DIR/" 2>/dev/null
+cp requirements.txt "\$BACKUP_DIR/" 2>/dev/null
+
+echo "✓ Backup erstellt: \$BACKUP_DIR"
+
+# Neue Dateien laden
+wget -q "\${GITHUB_RAW}/server.py" -O server.py && echo "✓ server.py aktualisiert"
+wget -q "\${GITHUB_RAW}/index.html" -O templates/index.html && echo "✓ index.html aktualisiert"
+wget -q "\${GITHUB_RAW}/install_edgard.sh" -O scripts/install_edgard.sh && echo "✓ install_edgard.sh aktualisiert"
+wget -q "\${GITHUB_RAW}/requirements.txt" -O requirements.txt && echo "✓ requirements.txt aktualisiert"
+
+chmod +x server.py
+chmod +x scripts/install_edgard.sh
+
+# Dependencies aktualisieren
 source venv/bin/activate
 pip install -q --upgrade -r requirements.txt
 echo "✓ Dependencies aktualisiert"
-EOF
+
+echo "
+🎉 Update abgeschlossen!"
+EOFUPDATE
 chmod +x update.sh
 log_success "update.sh erstellt"
 
@@ -287,6 +286,9 @@ fi
 echo ""
 echo "Verzeichnis: $(pwd)"
 echo "Python: $(source venv/bin/activate && python3 --version)"
+echo ""
+echo "Dateien:"
+ls -lh server.py templates/index.html scripts/install_edgard.sh requirements.txt 2>/dev/null
 EOF
 chmod +x status.sh
 log_success "status.sh erstellt"
@@ -305,7 +307,7 @@ EOF
 chmod +x logs.sh
 log_success "logs.sh erstellt"
 
-log_step "9/9 - Erstelle Dokumentation..."
+log_step "8/9 - Erstelle Dokumentation..."
 
 # README.md
 cat > "$INSTALL_DIR/README.md" << 'EOFREADME'
@@ -355,7 +357,20 @@ http://localhost:5000
 | `./restart.sh` | Server neu starten |
 | `./status.sh` | Status anzeigen |
 | `./logs.sh` | Logs anzeigen |
-| `./update.sh` | Dependencies aktualisieren |
+| `./update.sh` | Von GitHub aktualisieren |
+
+## 🔄 Updates von GitHub
+
+Um die neuesten Dateien von GitHub zu laden:
+```bash
+./update.sh
+```
+
+Dies lädt automatisch:
+- server.py
+- index.html
+- install_edgard.sh
+- requirements.txt
 
 ## 🔧 Entwicklung
 
@@ -370,56 +385,29 @@ source venv/bin/activate
 python3 server.py
 ```
 
-### Dependencies hinzufügen
-```bash
-source venv/bin/activate
-pip install paket-name
-pip freeze > requirements.txt
-```
-
-## 🐳 Als Systemd Service (Optional)
-
-### Service installieren
-```bash
-sudo cp edgard-installer.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable edgard-installer
-sudo systemctl start edgard-installer
-```
-
-### Service verwalten
-```bash
-sudo systemctl status edgard-installer
-sudo systemctl restart edgard-installer
-sudo systemctl stop edgard-installer
-```
-
 ## 📝 Logs
 
 Logs werden in `logs/server.log` gespeichert:
 ```bash
-tail -f logs/server.log
-# oder
 ./logs.sh
 ```
 
 ## 🛠️ Troubleshooting
 
-### Port bereits belegt
+### Dateien manuell von GitHub laden
 ```bash
-# Prüfen welcher Prozess Port 5000 verwendet
-sudo lsof -i :5000
-
-# Prozess beenden
-kill -9 <PID>
+cd ~/edgard-installer
+wget https://raw.githubusercontent.com/momo1212221/adauto/refs/heads/main/server.py -O server.py
+wget https://raw.githubusercontent.com/momo1212221/adauto/refs/heads/main/index.html -O templates/index.html
+wget https://raw.githubusercontent.com/momo1212221/adauto/refs/heads/main/install_edgard.sh -O scripts/install_edgard.sh
+wget https://raw.githubusercontent.com/momo1212221/adauto/refs/heads/main/requirements.txt -O requirements.txt
+chmod +x server.py scripts/install_edgard.sh
 ```
 
-### Dependencies-Probleme
+### Port bereits belegt
 ```bash
-./update.sh
-# oder
-source venv/bin/activate
-pip install --upgrade -r requirements.txt
+sudo lsof -i :5000
+kill -9 <PID>
 ```
 
 ### Virtual Environment neu erstellen
@@ -430,70 +418,11 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 📦 Repository-Updates
-
-Um Updates aus dem Repository zu holen:
-```bash
-cd /pfad/zum/repository
-git pull
-./setup.sh  # Setup erneut ausführen
-```
-
-## 🔐 Sicherheit
-
-- Server läuft auf `0.0.0.0` (alle Interfaces)
-- Für Produktiv-Umgebungen: Reverse Proxy (nginx/Apache) verwenden
-- Firewall-Regeln anpassen
-- HTTPS konfigurieren
-
-## 📞 Support
-
-Bei Problemen:
-1. Logs prüfen: `./logs.sh`
-2. Status prüfen: `./status.sh`
-3. Neu starten: `./restart.sh`
-
 EOFREADME
 
 log_success "README.md erstellt"
 
-# Systemd Service
-cat > "$INSTALL_DIR/edgard-installer.service" << EOFSERVICE
-[Unit]
-Description=Edgard Home Installer Web Interface
-After=network.target
-
-[Service]
-Type=simple
-User=$USER
-WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/start.sh
-Restart=always
-RestartSec=10
-StandardOutput=append:$INSTALL_DIR/logs/server.log
-StandardError=append:$INSTALL_DIR/logs/server.log
-
-[Install]
-WantedBy=multi-user.target
-EOFSERVICE
-
-log_success "edgard-installer.service erstellt"
-
-# .gitignore
-cat > "$INSTALL_DIR/.gitignore" << 'EOF'
-venv/
-*.pyc
-__pycache__/
-*.log
-logs/*.log
-config/*.json
-!config/*.example.json
-*.db
-*.sqlite
-.DS_Store
-EOF
-
-log_success ".gitignore erstellt"
+log_step "9/9 - Abschluss..."
 
 echo
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
@@ -506,21 +435,13 @@ echo
 log_info "📊 Installation Summary:"
 echo
 echo "  📁 Installation: $INSTALL_DIR"
-echo "  📁 Repository: $REPO_DIR"
+echo "  🌐 GitHub Repo: momo1212221/adauto"
 echo "  🐍 Python venv: $INSTALL_DIR/venv"
 echo
 
-log_info "📂 Kopierte Dateien:"
-tree -L 2 "$INSTALL_DIR" 2>/dev/null || find "$INSTALL_DIR" -maxdepth 2 -type f | head -20
+log_info "📂 Installierte Dateien:"
+tree -L 2 "$INSTALL_DIR" 2>/dev/null || ls -R "$INSTALL_DIR" | head -30
 echo
-
-if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-    log_warning "⚠️  Fehlende Dateien - Bitte ergänzen:"
-    for file in "${MISSING_FILES[@]}"; do
-        echo "     $file → $INSTALL_DIR/${file#src/}"
-    done
-    echo
-fi
 
 log_info "🚀 Nächste Schritte:"
 echo
@@ -533,10 +454,6 @@ echo
 echo "  3️⃣  Browser öffnen:"
 echo "     http://localhost:5000"
 echo
-echo "  4️⃣  Optional - Als Service:"
-echo "     sudo cp edgard-installer.service /etc/systemd/system/"
-echo "     sudo systemctl enable --now edgard-installer"
-echo
 
 log_info "📋 Verfügbare Befehle:"
 echo "     ./start.sh    - Server starten"
@@ -544,7 +461,7 @@ echo "     ./stop.sh     - Server stoppen"
 echo "     ./restart.sh  - Server neu starten"
 echo "     ./status.sh   - Status anzeigen"
 echo "     ./logs.sh     - Logs verfolgen"
-echo "     ./update.sh   - Dependencies aktualisieren"
+echo "     ./update.sh   - Von GitHub aktualisieren"
 echo
 
 # Automatisch starten?
