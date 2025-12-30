@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Edgard Home Installer - Web Interface Backend
-Vollständige Version mit AdGuard Home Integration
+Edgard Home Installer - Web Interface Backend (FIXED)
+Mit automatischer sudo-Verwendung für Docker-Befehle
 """
 
 import os
@@ -76,6 +76,39 @@ def update_step_status(function_name, status):
                         installation_status['current_step'] = i
                     print(f"[STEP] {step['name']} -> {status}")
 
+def check_user_in_docker_group():
+    """Prüft ob der aktuelle User in der docker-Gruppe ist"""
+    try:
+        result = subprocess.run(['groups'], capture_output=True, text=True)
+        return 'docker' in result.stdout
+    except:
+        return False
+
+def run_command_with_sudo_fallback(command, use_shell=False):
+    """Führt Befehl aus, verwendet sudo bei Permission-Fehler"""
+    try:
+        # Erst ohne sudo versuchen
+        if use_shell:
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        else:
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return result.stdout, result.stderr, 0
+    except subprocess.CalledProcessError as e:
+        # Bei Permission-Fehler mit sudo nochmal versuchen
+        if 'permission denied' in e.stderr.lower() or 'permission denied' in e.stdout.lower():
+            add_log('warning', 'Permission denied - verwende sudo')
+            try:
+                if use_shell:
+                    sudo_command = f"sudo {command}"
+                    result = subprocess.run(sudo_command, shell=True, capture_output=True, text=True, check=True)
+                else:
+                    sudo_command = ['sudo'] + command
+                    result = subprocess.run(sudo_command, capture_output=True, text=True, check=True)
+                return result.stdout, result.stderr, 0
+            except subprocess.CalledProcessError as e2:
+                return e2.stdout, e2.stderr, e2.returncode
+        return e.stdout, e.stderr, e.returncode
+
 def get_adguard_download_url():
     """Ermittelt die richtige AdGuard Home Download-URL für das System"""
     machine = platform.machine().lower()
@@ -113,7 +146,7 @@ def get_adguard_download_url():
         return url, version
 
 def install_adguard(install_path):
-    """Installiert AdGuard Home"""
+    """Installiert AdGuard Home mit sudo wo nötig"""
     try:
         add_log('info', 'Starte AdGuard Home Installation...')
         update_step_status('install_adguard', 'running')
@@ -163,6 +196,7 @@ WantedBy=multi-user.target
             f.write(service_content)
         
         add_log('info', 'Installiere Systemd Service...')
+        # Systemd-Befehle benötigen sudo
         subprocess.run(['sudo', 'cp', service_file, '/etc/systemd/system/adguardhome.service'], check=True)
         subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
         subprocess.run(['sudo', 'systemctl', 'enable', 'adguardhome'], check=True)
@@ -194,6 +228,12 @@ def run_installation(install_path, auto_update, install_adguard_option):
         add_log('info', f'Installationspfad: {install_path}')
         add_log('info', f'Auto-Update: {auto_update}')
         add_log('info', f'AdGuard Home: {install_adguard_option}')
+        
+        # Docker-Gruppe prüfen
+        if check_user_in_docker_group():
+            add_log('info', 'Benutzer ist in docker-Gruppe')
+        else:
+            add_log('warning', 'Benutzer nicht in docker-Gruppe - verwende sudo für Docker')
         
         # AdGuard installieren (wenn gewünscht)
         if install_adguard_option:
@@ -336,7 +376,7 @@ def health():
     """Health-Check Endpoint"""
     return jsonify({
         'status': 'ok',
-        'version': '1.0.0',
+        'version': '1.0.1',
         'timestamp': time.time()
     })
 
@@ -349,7 +389,7 @@ with installation_lock:
 
 if __name__ == '__main__':
     print("=" * 70)
-    print(" 🚀 Edgard Home Installer - Web Interface")
+    print(" 🚀 Edgard Home Installer - Web Interface (FIXED)")
     print("=" * 70)
     print("\n 📡 Server startet auf:")
     print("   • http://localhost:5000")
