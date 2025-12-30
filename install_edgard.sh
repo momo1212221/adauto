@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================================
-# EDGARD HOME - HAUPTINSTALLATION
+# EDGARD HOME - HAUPTINSTALLATION (FIXED)
 # ============================================================================
 
 # Farben
@@ -32,6 +32,12 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 log_success "Benutzerrechte OK"
+
+# Prüfe ob sudo verfügbar ist
+if ! command -v sudo &> /dev/null; then
+    log_error "sudo ist nicht installiert!"
+    exit 1
+fi
 
 # Internetverbindung prüfen
 log_info "Internetverbindung prüfen..."
@@ -76,12 +82,22 @@ else
     sudo usermod -aG docker $USER
     rm get-docker.sh
     log_success "Docker installiert"
-    log_warning "Bitte neu anmelden für Docker-Berechtigungen!"
+    log_warning "Benutzer zu docker-Gruppe hinzugefügt"
+fi
+
+# Docker-Berechtigungen prüfen und ggf. Gruppe neu laden
+if ! groups | grep -q docker; then
+    log_warning "Docker-Gruppe noch nicht aktiv - verwende sudo für Docker-Befehle"
+    DOCKER_CMD="sudo docker"
+    DOCKER_COMPOSE_CMD="sudo docker compose"
+else
+    DOCKER_CMD="docker"
+    DOCKER_COMPOSE_CMD="docker compose"
 fi
 
 # Docker Compose installieren
 log_info "Docker Compose installieren..."
-if command -v docker-compose &> /dev/null; then
+if command -v docker-compose &> /dev/null || docker compose version &> /dev/null 2>&1; then
     log_success "Docker Compose bereits installiert"
 else
     log_info "Installiere Docker Compose..."
@@ -99,8 +115,6 @@ cd "$EDGARD_DIR"
 # Docker Compose Datei erstellen
 log_info "Erstelle docker-compose.yml..."
 cat > docker-compose.yml << 'EOFDOCKER'
-version: '3.8'
-
 services:
   edgard-home:
     image: edgard/home:latest
@@ -129,9 +143,12 @@ log_success "docker-compose.yml erstellt"
 mkdir -p data config
 log_success "Verzeichnisse erstellt"
 
-# Container starten
+# Container starten (mit sudo falls nötig)
 log_info "Starte Edgard Home Container..."
-docker-compose up -d
+if ! $DOCKER_COMPOSE_CMD up -d 2>/dev/null; then
+    log_info "Verwende sudo für Docker Compose..."
+    sudo docker compose up -d
+fi
 log_success "Edgard Home gestartet!"
 
 # Auto-Update einrichten
@@ -142,9 +159,17 @@ if [ "$AUTO_UPDATE" = "true" ]; then
     cat > "$UPDATE_SCRIPT" << 'EOFUPDATE'
 #!/bin/bash
 cd $(dirname "$0")
-docker-compose pull
-docker-compose up -d
-docker image prune -f
+
+# Docker-Befehle mit sudo falls nötig
+if groups | grep -q docker; then
+    docker compose pull
+    docker compose up -d
+    docker image prune -f
+else
+    sudo docker compose pull
+    sudo docker compose up -d
+    sudo docker image prune -f
+fi
 EOFUPDATE
     
     chmod +x "$UPDATE_SCRIPT"
@@ -164,7 +189,12 @@ log_success "Installation erfolgreich!"
 log_success "==================================="
 echo
 log_info "Edgard Home läuft auf: http://localhost:8080"
-log_info "Container-Status: docker-compose ps"
-log_info "Logs anzeigen: docker-compose logs -f"
-log_info "Stoppen: docker-compose down"
+log_info "Container-Status: $DOCKER_COMPOSE_CMD ps"
+log_info "Logs anzeigen: $DOCKER_COMPOSE_CMD logs -f"
+log_info "Stoppen: $DOCKER_COMPOSE_CMD down"
 echo
+
+if ! groups | grep -q docker; then
+    log_warning "WICHTIG: Führen Sie 'newgrp docker' aus oder melden Sie sich neu an,"
+    log_warning "um Docker ohne sudo verwenden zu können."
+fi
